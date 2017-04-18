@@ -101,6 +101,17 @@ describe('gemini-teamcity', function() {
                 });
             });
 
+            it('should not pass "undefined" event data properties to "testFailed"', function() {
+                runner.emit('err', stubEventData_({
+                    stack: undefined,
+                    message: 'error message'
+                }));
+
+                var failedTestData = tsm.testFailed.lastCall.args[0];
+                assert.notProperty(failedTestData, 'details');
+                assert.property(failedTestData, 'message');
+            });
+
             it('should call "testFinished"', function() {
                 runner.emit('err', stubEventData_({
                     stack: 'error stack',
