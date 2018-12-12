@@ -134,9 +134,7 @@ describe('reportScreenshot', function() {
     it('should store artifact', function() {
         func(testName, 'path/to/image');
 
-        assert.calledWithMatch(tsm.publishArtifacts, {
-            path: '<cwd>/path/to/image => .teamcity/path/to'
-        });
+        assert.calledWith(tsm.publishArtifacts, '<cwd>/path/to/image => .teamcity/path/to');
     });
 
     it('should report metadata', function() {
