@@ -61,7 +61,7 @@ describe('getTestName', function() {
 
 describe('getImagePath', function() {
     var data;
-    var imageBase;
+    var imageBase = 'base';
     var func = utils.getImagePath;
     var base = utils.imagesPath;
 
@@ -75,7 +75,6 @@ describe('getImagePath', function() {
             },
             browserId: 'chrome'
         };
-        imageBase = 'base'
     });
 
     it('should trim the suite name from spaces', function() {
@@ -120,6 +119,7 @@ describe('getImagePath', function() {
 describe('reportScreenshot', function() {
     var sandbox = sinon.sandbox.create();
     var func = utils.reportScreenshot;
+    var testName = 'testName';
 
     beforeEach(function() {
         sandbox.stub(tsm);
@@ -130,7 +130,7 @@ describe('reportScreenshot', function() {
     });
 
     it('should store artifact', function() {
-        func('path/to/image');
+        func(testName, 'path/to/image');
 
         assert.calledWithMatch(tsm.publishArtifacts, {
             path: 'path/to/image => .teamcity'
@@ -138,10 +138,11 @@ describe('reportScreenshot', function() {
     });
 
     it('should report metadata', function() {
-        func('path/to/image');
+        func(testName, 'path/to/image');
 
         assert.calledWithNew(tsm.Message);
         assert.calledWithMatch(tsm.Message, 'testMetadata', {
+            testName: 'testName',
             type: 'image',
             value: '.teamcity/path/to/image'
         });

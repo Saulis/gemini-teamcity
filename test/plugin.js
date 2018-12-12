@@ -116,6 +116,7 @@ describe('gemini-teamcity', function() {
             );
             assert.calledWithMatch(
               utils.reportScreenshot,
+              'Suite_default_full_name.State_default_name.default-browser',
               'gemini-0/Suite default full name/State default name/default-browser/Reference.png'
             );
         });
@@ -141,6 +142,7 @@ describe('gemini-teamcity', function() {
                 );
                 assert.calledWithMatch(
                   utils.reportScreenshot,
+                  'Suite_default_full_name.State_default_name.default-browser',
                   'gemini-0/Suite default full name/State default name/default-browser/Reference.png'
                 );
             });
@@ -155,6 +157,7 @@ describe('gemini-teamcity', function() {
                 );
                 assert.calledWithMatch(
                   utils.reportScreenshot,
+                  'Suite_default_full_name.State_default_name.default-browser',
                   'gemini-0/Suite default full name/State default name/default-browser/Current.png'
                 );
             });
@@ -168,6 +171,7 @@ describe('gemini-teamcity', function() {
                 );
                 assert.calledWithMatch(
                   utils.reportScreenshot,
+                  'Suite_default_full_name.State_default_name.default-browser',
                   'gemini-0/Suite default full name/State default name/default-browser/Diff.png'
                 );
             });
