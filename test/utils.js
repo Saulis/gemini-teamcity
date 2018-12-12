@@ -1,3 +1,4 @@
+var path = require('path');
 var assert = require('chai').assert;
 var sinon = require('sinon');
 var tsm = require('teamcity-service-messages');
@@ -123,6 +124,7 @@ describe('reportScreenshot', function() {
 
     beforeEach(function() {
         sandbox.stub(tsm);
+        sandbox.stub(path, 'resolve', path.join.bind(path, '<cwd>'));
     });
 
     afterEach(function() {
@@ -133,7 +135,7 @@ describe('reportScreenshot', function() {
         func(testName, 'path/to/image');
 
         assert.calledWithMatch(tsm.publishArtifacts, {
-            path: 'path/to/image => .teamcity'
+            path: '<cwd>/path/to/image => .teamcity/path/to'
         });
     });
 
