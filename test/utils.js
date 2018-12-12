@@ -1,4 +1,6 @@
 var assert = require('chai').assert;
+var sinon = require('sinon');
+var tsm = require('teamcity-service-messages');
 
 var utils = require('../lib/utils');
 
@@ -54,5 +56,94 @@ describe('getTestName', function() {
         var expected = 'root_suite.state_number_two.chrome41';
 
         assert.equal(actual, expected);
+    });
+});
+
+describe('getImagePath', function() {
+    var data;
+    var imageBase;
+    var func = utils.getImagePath;
+    var base = utils.imagesPath;
+
+    beforeEach(function() {
+        data = {
+            suite: {
+                fullName: 'suite'
+            },
+            state: {
+                name: 'state'
+            },
+            browserId: 'chrome'
+        };
+        imageBase = 'base'
+    });
+
+    it('should trim the suite name from spaces', function() {
+        data.suite.fullName = ' suite ';
+
+        var actual = func(imageBase, data, 'Current');
+        var expected = 'base/suite/state/chrome/Current.png';
+
+        assert.equal(actual, expected);
+    });
+
+    it('should trim the state name from spaces', function() {
+        data.state.name = ' state ';
+
+        var actual = func(imageBase, data, 'Current');
+        var expected = 'base/suite/state/chrome/Current.png';
+
+        assert.equal(actual, expected);
+    });
+
+    it('should trim browserId from spaces', function() {
+        data.browserId = ' chrome 41 ';
+
+        var actual = func(imageBase, data, 'Current');
+        var expected = 'base/suite/state/chrome 41/Current.png';
+
+        assert.equal(actual, expected);
+    });
+
+    it('should preserve inner spaces', function() {
+        data.browserId = 'chrome 41';
+        data.suite.fullName = ' root suite ';
+        data.state.name = ' state number two';
+
+        var actual = func(imageBase, data, 'Current');
+        var expected = 'base/root suite/state number two/chrome 41/Current.png';
+
+        assert.equal(actual, expected);
+    });
+});
+
+describe('reportScreenshot', function() {
+    var sandbox = sinon.sandbox.create();
+    var func = utils.reportScreenshot;
+
+    beforeEach(function() {
+        sandbox.stub(tsm);
+    });
+
+    afterEach(function() {
+        sandbox.restore();
+    });
+
+    it('should store artifact', function() {
+        func('path/to/image');
+
+        assert.calledWithMatch(tsm.publishArtifacts, {
+            path: 'path/to/image => .teamcity'
+        });
+    });
+
+    it('should report metadata', function() {
+        func('path/to/image');
+
+        assert.calledWithNew(tsm.Message);
+        assert.calledWithMatch(tsm.Message, 'testMetadata', {
+            type: 'image',
+            value: '.teamcity/path/to/image'
+        });
     });
 });

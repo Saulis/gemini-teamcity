@@ -3,15 +3,26 @@ var EventEmitter = require('events').EventEmitter;
 var sinon = require('sinon');
 var assert = require('chai').assert;
 var tsm = require('teamcity-service-messages');
+var fs = require('fs-extra');
 var _ = require('lodash');
 
+var utils = require('../lib/utils');
 var plugin = require('../lib/plugin');
 
 sinon.assert.expose(assert, {prefix: ''});
 
+function resolveImmediately() {
+    console.log(arguments);
+    return {
+        then: function(callback) {
+            callback();
+        }
+    }
+}
+
 describe('gemini-teamcity', function() {
     var sandbox = sinon.sandbox.create(),
-        gemini, runner;
+        gemini, runner, saveDiffTo;
 
     function stubEventData_(opts) {
         return _.extend({
@@ -23,18 +34,32 @@ describe('gemini-teamcity', function() {
             },
             browserId: 'default-browser',
             sessionId: 'default-session-id',
-            equal: true
+            equal: true,
+            refImg: {
+                path: 'refPath'
+            },
+            currImg: {
+                path: 'currPath'
+            },
+            saveDiffTo: saveDiffTo
         }, opts);
     }
 
     beforeEach(function() {
+        sandbox.stub(tsm);
+        sandbox.stub(fs, 'mkdtempSync', function(prefix) {
+            return prefix + '0';
+        });
+        sandbox.stub(fs, 'copy', resolveImmediately);
+        sandbox.stub(utils, 'reportScreenshot');
+        saveDiffTo = sandbox.spy(resolveImmediately);
+
         gemini = new EventEmitter();
         runner = new EventEmitter();
 
         plugin(gemini);
         gemini.emit('startRunner', runner);
 
-        sandbox.stub(tsm);
     });
 
     afterEach(function() {
@@ -81,8 +106,71 @@ describe('gemini-teamcity', function() {
     describe('on testResult', function() {
         testArgs_('testResult', 'testFinished');
 
+        it ('should copy & report reference image', function () {
+            runner.emit('testResult', stubEventData_());
+
+            assert.calledWithMatch(
+              fs.copy,
+              'refPath',
+              'gemini-0/Suite default full name/State default name/default-browser/Reference.png'
+            );
+            assert.calledWithMatch(
+              utils.reportScreenshot,
+              'gemini-0/Suite default full name/State default name/default-browser/Reference.png'
+            );
+        });
+
+        it ("shouldn't copy or report any other images", function () {
+            runner.emit('testResult', stubEventData_());
+
+            assert.calledOnce(fs.copy);
+            assert.calledOnce(utils.reportScreenshot);
+            assert.notCalled(saveDiffTo);
+        });
+
         describe('Test is failed', function() {
             testArgs_('testResult', 'testFailed', {equal: false});
+
+            it ('should copy & report reference image', function () {
+                runner.emit('testResult', stubEventData_({equal: false}));
+
+                assert.calledWithMatch(
+                  fs.copy,
+                  'refPath',
+                  'gemini-0/Suite default full name/State default name/default-browser/Reference.png'
+                );
+                assert.calledWithMatch(
+                  utils.reportScreenshot,
+                  'gemini-0/Suite default full name/State default name/default-browser/Reference.png'
+                );
+            });
+
+            it ('should copy & report current image', function () {
+                runner.emit('testResult', stubEventData_({equal: false}));
+
+                assert.calledWithMatch(
+                  fs.copy,
+                  'currPath',
+                  'gemini-0/Suite default full name/State default name/default-browser/Current.png'
+                );
+                assert.calledWithMatch(
+                  utils.reportScreenshot,
+                  'gemini-0/Suite default full name/State default name/default-browser/Current.png'
+                );
+            });
+
+            it ('should save & report diff image', function () {
+                runner.emit('testResult', stubEventData_({equal: false}));
+
+                assert.calledWithMatch(
+                  saveDiffTo,
+                  'gemini-0/Suite default full name/State default name/default-browser/Diff.png'
+                );
+                assert.calledWithMatch(
+                  utils.reportScreenshot,
+                  'gemini-0/Suite default full name/State default name/default-browser/Diff.png'
+                );
+            });
         });
     });
 
