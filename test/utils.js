@@ -144,7 +144,6 @@ describe('reportScreenshot', function() {
         assert.calledWithMatch(tsm.Message, 'testMetadata', {
             testName: 'testName',
             type: 'image',
-            name: 'image',
             value: '.teamcity/path/to/image.png'
         });
     });
