@@ -47,9 +47,7 @@ describe('gemini-teamcity', function() {
 
     beforeEach(function() {
         sandbox.stub(tsm);
-        sandbox.stub(fs, 'mkdtempSync', function(prefix) {
-            return prefix + '0';
-        });
+        sandbox.stub(fs, 'ensureDirSync');
         sandbox.stub(fs, 'copy', resolveImmediately);
         sandbox.stub(utils, 'reportScreenshot');
         saveDiffTo = sandbox.spy(resolveImmediately);
@@ -95,6 +93,12 @@ describe('gemini-teamcity', function() {
         });
     }
 
+    describe ('on startRunner', function() {
+        it('should create directory for images', function() {
+            assert.calledWith(fs.ensureDirSync, 'gemini-images');
+        })
+    });
+
     describe('on beginState', function() {
         testArgs_('beginState', 'testStarted');
     });
@@ -112,12 +116,12 @@ describe('gemini-teamcity', function() {
             assert.calledWithMatch(
               fs.copy,
               'refPath',
-              'gemini-0/Suite default full name/State default name/default-browser/Reference.png'
+              'gemini-images/Suite default full name/State default name/default-browser/Reference.png'
             );
             assert.calledWithMatch(
               utils.reportScreenshot,
               'Suite_default_full_name.State_default_name.default-browser',
-              'gemini-0/Suite default full name/State default name/default-browser/Reference.png'
+              'gemini-images/Suite default full name/State default name/default-browser/Reference.png'
             );
         });
 
@@ -138,12 +142,12 @@ describe('gemini-teamcity', function() {
                 assert.calledWithMatch(
                   fs.copy,
                   'refPath',
-                  'gemini-0/Suite default full name/State default name/default-browser/Reference.png'
+                  'gemini-images/Suite default full name/State default name/default-browser/Reference.png'
                 );
                 assert.calledWithMatch(
                   utils.reportScreenshot,
                   'Suite_default_full_name.State_default_name.default-browser',
-                  'gemini-0/Suite default full name/State default name/default-browser/Reference.png'
+                  'gemini-images/Suite default full name/State default name/default-browser/Reference.png'
                 );
             });
 
@@ -153,12 +157,12 @@ describe('gemini-teamcity', function() {
                 assert.calledWithMatch(
                   fs.copy,
                   'currPath',
-                  'gemini-0/Suite default full name/State default name/default-browser/Current.png'
+                  'gemini-images/Suite default full name/State default name/default-browser/Current.png'
                 );
                 assert.calledWithMatch(
                   utils.reportScreenshot,
                   'Suite_default_full_name.State_default_name.default-browser',
-                  'gemini-0/Suite default full name/State default name/default-browser/Current.png'
+                  'gemini-images/Suite default full name/State default name/default-browser/Current.png'
                 );
             });
 
@@ -167,12 +171,12 @@ describe('gemini-teamcity', function() {
 
                 assert.calledWithMatch(
                   saveDiffTo,
-                  'gemini-0/Suite default full name/State default name/default-browser/Diff.png'
+                  'gemini-images/Suite default full name/State default name/default-browser/Diff.png'
                 );
                 assert.calledWithMatch(
                   utils.reportScreenshot,
                   'Suite_default_full_name.State_default_name.default-browser',
-                  'gemini-0/Suite default full name/State default name/default-browser/Diff.png'
+                  'gemini-images/Suite default full name/State default name/default-browser/Diff.png'
                 );
             });
         });
@@ -246,5 +250,74 @@ describe('gemini-teamcity', function() {
                 assert.notCalled(tsm.testFailed);
             });
         });
+    });
+});
+
+describe('options', function() {
+    var sandbox = sinon.sandbox.create(),
+      gemini, runner, saveDiffTo;
+
+    function stubEventData_ (opts) {
+        return _.extend({
+            suite: {
+                fullName: 'Suite default full name'
+            },
+            state: {
+                name: 'State default name'
+            },
+            browserId: 'default-browser',
+            sessionId: 'default-session-id',
+            equal: true,
+            refImg: {
+                path: 'refPath'
+            },
+            currImg: {
+                path: 'currPath'
+            },
+            saveDiffTo: saveDiffTo
+        }, opts);
+    }
+
+    beforeEach(function () {
+        sandbox.stub(tsm);
+        sandbox.stub(fs, 'ensureDirSync');
+        sandbox.stub(fs, 'copy', resolveImmediately);
+        sandbox.stub(utils, 'reportScreenshot');
+        saveDiffTo = sandbox.spy(resolveImmediately);
+
+        gemini = new EventEmitter();
+        runner = new EventEmitter();
+    });
+
+    afterEach(function () {
+        sandbox.restore();
+    });
+
+    describe('imagesDir', function () {
+        beforeEach(function () {
+            plugin(gemini, {
+                imagesDir: 'path/to/my/dir'
+            });
+            gemini.emit('startRunner', runner);
+        });
+
+        it('creates a custom dir', function () {
+            assert.calledWith(fs.ensureDirSync, 'path/to/my/dir');
+        })
+
+        it('passes a custom dir for copying and reporting', function () {
+            runner.emit('testResult', stubEventData_());
+
+            assert.calledWithMatch(
+              fs.copy,
+              'refPath',
+              'path/to/my/dir/Suite default full name/State default name/default-browser/Reference.png'
+            );
+            assert.calledWithMatch(
+              utils.reportScreenshot,
+              'Suite_default_full_name.State_default_name.default-browser',
+              'path/to/my/dir/Suite default full name/State default name/default-browser/Reference.png'
+            );
+        })
     });
 });

@@ -18,3 +18,15 @@ Set the configuration to your `.gemini.yml`
 plugins:
   teamcity: true
 ```
+
+## Options
+
+### imagesDir
+
+Directory to save images to. `gemini-images` by default.
+
+```
+plugins:
+  teamcity:
+    imagesDir: path/to/my/dir
+```

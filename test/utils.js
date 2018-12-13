@@ -132,19 +132,20 @@ describe('reportScreenshot', function() {
     });
 
     it('should store artifact', function() {
-        func(testName, 'path/to/image');
+        func(testName, 'path/to/image.png');
 
-        assert.calledWith(tsm.publishArtifacts, '<cwd>/path/to/image => .teamcity/path/to');
+        assert.calledWith(tsm.publishArtifacts, '<cwd>/path/to/image.png => .teamcity/path/to');
     });
 
     it('should report metadata', function() {
-        func(testName, 'path/to/image');
+        func(testName, 'path/to/image.png');
 
         assert.calledWithNew(tsm.Message);
         assert.calledWithMatch(tsm.Message, 'testMetadata', {
             testName: 'testName',
             type: 'image',
-            value: '.teamcity/path/to/image'
+            name: 'image',
+            value: '.teamcity/path/to/image.png'
         });
     });
 });
