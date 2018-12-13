@@ -251,6 +251,35 @@ describe('gemini-teamcity', function() {
             });
         });
     });
+
+    describe("older gemini versions", () => {
+       it("should get reference image in legacy format", () => {
+           runner.emit('testResult', stubEventData_({
+               refImg: null,
+               referencePath: 'referencePath'
+           }));
+
+           assert.calledWithMatch(
+             fs.copy,
+             'referencePath',
+             'gemini-images/Suite default full name/State default name/default-browser/Reference.png'
+           );
+       })
+
+       it("should get current image in legacy format", () => {
+           runner.emit('testResult', stubEventData_({
+               equal: false,
+               currImg: null,
+               currentPath: 'currentPath'
+           }));
+
+           assert.calledWithMatch(
+             fs.copy,
+             'currentPath',
+             'gemini-images/Suite default full name/State default name/default-browser/Current.png'
+           );
+       })
+    });
 });
 
 describe('options', function() {
