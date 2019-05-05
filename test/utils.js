@@ -140,8 +140,7 @@ describe('reportScreenshot', function() {
     it('should report metadata', function() {
         func(testName, 'path/to/image.png');
 
-        assert.calledWithNew(tsm.Message);
-        assert.calledWithMatch(tsm.Message, 'testMetadata', {
+        assert.calledWithMatch(tsm.testMetadata, {
             testName: 'testName',
             type: 'image',
             value: '.teamcity/path/to/image.png'
