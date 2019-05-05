@@ -3,15 +3,26 @@ var EventEmitter = require('events').EventEmitter;
 var sinon = require('sinon');
 var assert = require('chai').assert;
 var tsm = require('teamcity-service-messages');
+var fs = require('fs-extra');
 var _ = require('lodash');
 
+var utils = require('../lib/utils');
 var plugin = require('../lib/plugin');
 
 sinon.assert.expose(assert, {prefix: ''});
 
+function resolveImmediately() {
+    console.log(arguments);
+    return {
+        then: function(callback) {
+            callback();
+        }
+    }
+}
+
 describe('gemini-teamcity', function() {
     var sandbox = sinon.sandbox.create(),
-        gemini, runner;
+        gemini, runner, saveDiffTo;
 
     function stubEventData_(opts) {
         return _.extend({
@@ -23,18 +34,30 @@ describe('gemini-teamcity', function() {
             },
             browserId: 'default-browser',
             sessionId: 'default-session-id',
-            equal: true
+            equal: true,
+            refImg: {
+                path: 'refPath'
+            },
+            currImg: {
+                path: 'currPath'
+            },
+            saveDiffTo: saveDiffTo
         }, opts);
     }
 
     beforeEach(function() {
+        sandbox.stub(tsm);
+        sandbox.stub(fs, 'ensureDirSync');
+        sandbox.stub(fs, 'copy', resolveImmediately);
+        sandbox.stub(utils, 'reportScreenshot');
+        saveDiffTo = sandbox.spy(resolveImmediately);
+
         gemini = new EventEmitter();
         runner = new EventEmitter();
 
         plugin(gemini);
         gemini.emit('startRunner', runner);
 
-        sandbox.stub(tsm);
     });
 
     afterEach(function() {
@@ -70,6 +93,12 @@ describe('gemini-teamcity', function() {
         });
     }
 
+    describe ('on startRunner', function() {
+        it('should create directory for images', function() {
+            assert.calledWith(fs.ensureDirSync, 'gemini-images');
+        })
+    });
+
     describe('on beginState', function() {
         testArgs_('beginState', 'testStarted');
     });
@@ -81,8 +110,75 @@ describe('gemini-teamcity', function() {
     describe('on testResult', function() {
         testArgs_('testResult', 'testFinished');
 
+        it ('should copy & report reference image', function () {
+            runner.emit('testResult', stubEventData_());
+
+            assert.calledWithMatch(
+              fs.copy,
+              'refPath',
+              'gemini-images/Suite default full name/State default name/default-browser/Reference.png'
+            );
+            assert.calledWithMatch(
+              utils.reportScreenshot,
+              'Suite_default_full_name.State_default_name.default-browser',
+              'gemini-images/Suite default full name/State default name/default-browser/Reference.png'
+            );
+        });
+
+        it ("shouldn't copy or report any other images", function () {
+            runner.emit('testResult', stubEventData_());
+
+            assert.calledOnce(fs.copy);
+            assert.calledOnce(utils.reportScreenshot);
+            assert.notCalled(saveDiffTo);
+        });
+
         describe('Test is failed', function() {
             testArgs_('testResult', 'testFailed', {equal: false});
+
+            it ('should copy & report reference image', function () {
+                runner.emit('testResult', stubEventData_({equal: false}));
+
+                assert.calledWithMatch(
+                  fs.copy,
+                  'refPath',
+                  'gemini-images/Suite default full name/State default name/default-browser/Reference.png'
+                );
+                assert.calledWithMatch(
+                  utils.reportScreenshot,
+                  'Suite_default_full_name.State_default_name.default-browser',
+                  'gemini-images/Suite default full name/State default name/default-browser/Reference.png'
+                );
+            });
+
+            it ('should copy & report current image', function () {
+                runner.emit('testResult', stubEventData_({equal: false}));
+
+                assert.calledWithMatch(
+                  fs.copy,
+                  'currPath',
+                  'gemini-images/Suite default full name/State default name/default-browser/Current.png'
+                );
+                assert.calledWithMatch(
+                  utils.reportScreenshot,
+                  'Suite_default_full_name.State_default_name.default-browser',
+                  'gemini-images/Suite default full name/State default name/default-browser/Current.png'
+                );
+            });
+
+            it ('should save & report diff image', function () {
+                runner.emit('testResult', stubEventData_({equal: false}));
+
+                assert.calledWithMatch(
+                  saveDiffTo,
+                  'gemini-images/Suite default full name/State default name/default-browser/Diff.png'
+                );
+                assert.calledWithMatch(
+                  utils.reportScreenshot,
+                  'Suite_default_full_name.State_default_name.default-browser',
+                  'gemini-images/Suite default full name/State default name/default-browser/Diff.png'
+                );
+            });
         });
     });
 
@@ -154,5 +250,103 @@ describe('gemini-teamcity', function() {
                 assert.notCalled(tsm.testFailed);
             });
         });
+    });
+
+    describe("older gemini versions", () => {
+       it("should get reference image in legacy format", () => {
+           runner.emit('testResult', stubEventData_({
+               refImg: null,
+               referencePath: 'referencePath'
+           }));
+
+           assert.calledWithMatch(
+             fs.copy,
+             'referencePath',
+             'gemini-images/Suite default full name/State default name/default-browser/Reference.png'
+           );
+       })
+
+       it("should get current image in legacy format", () => {
+           runner.emit('testResult', stubEventData_({
+               equal: false,
+               currImg: null,
+               currentPath: 'currentPath'
+           }));
+
+           assert.calledWithMatch(
+             fs.copy,
+             'currentPath',
+             'gemini-images/Suite default full name/State default name/default-browser/Current.png'
+           );
+       })
+    });
+});
+
+describe('options', function() {
+    var sandbox = sinon.sandbox.create(),
+      gemini, runner, saveDiffTo;
+
+    function stubEventData_ (opts) {
+        return _.extend({
+            suite: {
+                fullName: 'Suite default full name'
+            },
+            state: {
+                name: 'State default name'
+            },
+            browserId: 'default-browser',
+            sessionId: 'default-session-id',
+            equal: true,
+            refImg: {
+                path: 'refPath'
+            },
+            currImg: {
+                path: 'currPath'
+            },
+            saveDiffTo: saveDiffTo
+        }, opts);
+    }
+
+    beforeEach(function () {
+        sandbox.stub(tsm);
+        sandbox.stub(fs, 'ensureDirSync');
+        sandbox.stub(fs, 'copy', resolveImmediately);
+        sandbox.stub(utils, 'reportScreenshot');
+        saveDiffTo = sandbox.spy(resolveImmediately);
+
+        gemini = new EventEmitter();
+        runner = new EventEmitter();
+    });
+
+    afterEach(function () {
+        sandbox.restore();
+    });
+
+    describe('imagesDir', function () {
+        beforeEach(function () {
+            plugin(gemini, {
+                imagesDir: 'path/to/my/dir'
+            });
+            gemini.emit('startRunner', runner);
+        });
+
+        it('creates a custom dir', function () {
+            assert.calledWith(fs.ensureDirSync, 'path/to/my/dir');
+        })
+
+        it('passes a custom dir for copying and reporting', function () {
+            runner.emit('testResult', stubEventData_());
+
+            assert.calledWithMatch(
+              fs.copy,
+              'refPath',
+              'path/to/my/dir/Suite default full name/State default name/default-browser/Reference.png'
+            );
+            assert.calledWithMatch(
+              utils.reportScreenshot,
+              'Suite_default_full_name.State_default_name.default-browser',
+              'path/to/my/dir/Suite default full name/State default name/default-browser/Reference.png'
+            );
+        })
     });
 });
